@@ -43,6 +43,8 @@ pub struct Response {
 
 impl From<RawResponse> for Response {
     fn from(raw_response: RawResponse) -> Self {
+        println!("raw response: {:#?}", raw_response);
+
         let RawResponse {
             id,
             error,
