@@ -2,6 +2,7 @@ mod background;
 pub mod client;
 pub mod errors;
 mod events;
+pub mod invoker;
 pub mod network_conf;
 mod params;
 mod requests;

@@ -4,5 +4,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     client.record_success().await?;
 
+    // init();
     Ok(())
 }
