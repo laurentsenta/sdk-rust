@@ -1,0 +1,14 @@
+[metadata]
+  name = "example"
+
+[global]
+  plan = "sdk-rust"
+  case = "example"
+  total_instances = 1
+  builder = "docker:generic"
+  runner = "local:docker"
+
+[[groups]]
+  id = "group1"
+  [groups.instances]
+    count = 1

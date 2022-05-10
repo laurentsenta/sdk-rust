@@ -82,33 +82,35 @@ jobs:
         with:
           path: sdk-rust
 
-      - name: Checkout testground
-        uses: actions/checkout@v2
-        with:
-          path: testground
-          repository: testground/testground
-
-      - name: Setup Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: "1.16.x"
-
       - name: Install testground
-        run: make install
-        working-directory: testground
+        uses: laurentsenta/testground-github-actions/setup-testground@master
 
       - name: Run testground daemon
-        run: testground daemon &
+        run: testground daemon | tee ~/daemon.out &
 
-      - name: Import testground plans
-        run: testground plan import --from sdk-rust
+      - name: Check testground daemon health
+        run: testground healthcheck --runner local:docker --fix
 
       - name: Run testground plan (sdk-rust)
+        id: run
+        uses: laurentsenta/testground-github-actions/run-composition@master
+        with:
+          backend_endpoint: http://127.0.0.1:8042
+          plan_directory: sdk-rust
+          composition_file: sdk-rust/composition.toml
+
+      - name: Collect test ouputs
+        if: ${{ steps.run.outputs.testground_id && (success() || failure()) }}
         run: |
-          testground run single \
-            --plan=sdk-rust \
-            --testcase=example \
-            --builder=docker:generic \
+          testground collect \
             --runner=local:docker \
-            --instances=1 \
-            --wait
+            --output ~/testground_output.tgz \
+            "${{ steps.run.outputs.testground_id }}"
+
+      - uses: actions/upload-artifact@v3
+        if: ${{ success() || failure() }}
+        with:
+          name: testground-output
+          path: |
+            ~/testground_output.tgz
+            ~/daemon.out
