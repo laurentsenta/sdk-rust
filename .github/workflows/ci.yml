@@ -82,61 +82,32 @@ jobs:
         with:
           path: sdk-rust
 
-      - name: Checkout testground
-        uses: actions/checkout@v2
-        with:
-          path: testground
-          repository: testground/testground
-
-      - name: Setup Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: "1.16.x"
-
       - name: Install testground
-        run: make install
-        working-directory: testground
+        uses: laurentsenta/testground-github-actions/setup-testground@master
 
       - name: Run testground daemon
-        run: testground daemon &
-
-      - name: Import testground plans
-        run: testground plan import --from sdk-rust
+        run: testground daemon | tee ~/daemon.out &
 
       - name: Run testground plan (sdk-rust)
+        id: run
+        uses: laurentsenta/testground-github-actions/run-composition@master
+        with:
+          backend_endpoint: http://127.0.0.1:8042
+          plan_directory: sdk-rust
+          composition_file: sdk-rust/composition.toml
+
+      - name: Collect test ouputs
+        if: ${{ steps.run.outputs.testground_id && (success() || failure()) }}
         run: |
-          testground run single \
-            --plan=sdk-rust \
-            --testcase=example \
-            --builder=docker:generic \
+          testground collect \
             --runner=local:docker \
-            --instances=1 \
-            --wait | tee run.out
-      - name: Check testground output (sdk-rust)
-        run: |
-          TG_ID=$(awk '/run is queued with ID/ {print $10}' <run.out)
-          testground status -t "${TG_ID}" --extended  | tee extendedstatus.out
-          extstatus=$(awk '/Result/ {getline; print $0}' <extendedstatus.out)
-          extstatus=$(echo "${extstatus}" | tr -d "[:cntrl:]" |  sed 's/\[0m//g')
-          if [ "${extstatus}" == "null" ]
-          then
-            echo "${OUTPUT_OUTCOME}failure/canceled"
-            exit 1
-          fi
+            --output ~/testground_output.tgz \
+            "${{ steps.run.outputs.testground_id }}"
 
-          outcome=$(echo "${extstatus}" | jq ".outcome")
-
-          echo "the extended status was ${extstatus}"
-          echo "The outcome of this test was ${outcome}"
-          echo "${OUTPUT_OUTCOME}${outcome}"
-
-          testground collect --runner "${TG_RUNNER}" "${TG_ID}"
-          mv "${TG_ID}.tgz" ~/testground_output.tgz
-
-          test "${outcome}" = "\"success\"" && exit 0 || exit 1
       - uses: actions/upload-artifact@v3
-        if: ${{ always() }}
+        if: ${{ success() || failure() }}
         with:
           name: testground-output
           path: |
             ~/testground_output.tgz
+            ~/daemon.out
