@@ -60,6 +60,7 @@ impl From<RawResponse> for Response {
             }
             (None, Some(msg), None, None) => {
                 //Hack to remove extra escape characters
+                println!("MSG: {}", msg);
                 let msg = serde_json::from_str(&msg).expect("JSON Deserialization");
                 ResponseType::Subscribe(msg)
             }
